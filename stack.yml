@@ -3,6 +3,18 @@ provider:
   gateway: http://127.0.0.1:8080
 
 functions:
+  # function to generate-id
+  generate-id:
+    lang: python
+    handler: ./generate-id
+    image: generate-id:latest
+
+  # function to inform status
+  inform-status:
+    lang: python
+    handler: ./inform-status
+    image: inform-status:latest
+
   # function to manage hotel-booking
   hotel-booking:
     lang: python
