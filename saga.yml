@@ -1,0 +1,11 @@
+environment:
+  workflow_name: "travel-agent-saga"
+  gateway: "gateway:8080"
+  intermediate_storage: false
+  consul_url: "statestore_consul:8500"
+  consul_dc: "dc1"
+  # enable_tracing: true
+  enable_tracing: false
+  trace_server: "jaegertracing:5775"
+  enable_hmac: true
+  # faasflow-hmac-secret: "" // use default

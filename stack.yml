@@ -1,0 +1,41 @@
+provider:
+  name: faas
+  gateway: http://127.0.0.1:8080
+
+functions:
+  # function to manage hotel-booking
+  hotel-booking:
+    lang: python
+    handler: ./hotel
+    image: book-hotel:latest
+
+  # function to manage flight-booking
+  flight-booking:
+    lang: python
+    handler: ./flight
+    image: book-flight:latest
+
+  # function to manage car-booking
+  car-booking:
+    lang: python
+    handler: ./car
+    image: rent-car:latest
+
+  # function to manage travel-agent
+  travel-agent-saga:
+    lang: faas-flow
+    handler: ./saga
+    image: travel-agent-saga:latest
+    labels:
+      faas-flow: 1
+      faas-flow-desc: "flow that determines a saga for travel-agent"
+    environment:
+      read_timeout: 120
+      write_timeout: 120
+      write_debug: true
+      combine_output: false
+    environment_file:
+      - saga.yml
+    secrets:
+      - s3-secret-key
+      - s3-access-key
