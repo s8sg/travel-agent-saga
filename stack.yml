@@ -36,6 +36,6 @@ functions:
       combine_output: false
     environment_file:
       - saga.yml
-    secrets:
-      - s3-secret-key
-      - s3-access-key
+    # secrets:
+    #  - s3-secret-key
+    #  - s3-access-key

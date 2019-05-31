@@ -28,7 +28,7 @@ func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 	// Book Flight
 	sagaDag.AddFunction("flight", "flight-booking",
 		flow.Query("request", "book"),
-		flow.Query("booking-id", context.GetString("booking-id")),
+		//flow.Query("booking-id", context.GetString("booking-id")),
 	)
 	branchdags := sagaDag.AddConditionalBranch("check-flightbooking-status",
 		// the possible condition
@@ -53,7 +53,7 @@ func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 	sagaDag = branchdags["success"]
 	sagaDag.AddFunction("hotel", "hotel-booking",
 		flow.Query("request", "book"),
-		flow.Query("booking-id", context.GetString("booking-id")),
+		//flow.Query("booking-id", context.GetString("booking-id")),
 	)
 	branchdags = sagaDag.AddConditionalBranch("check-hotelbooking-status",
 		// the possible confdition
@@ -70,7 +70,7 @@ func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 	failureDag = branchdags["failure"]
 	failureDag.AddFunction("flight-cancel", "flight-booking",
 		flow.Query("request", "cancel"),
-		flow.Query("booking-id", context.GetString("booking-id")),
+		//flow.Query("booking-id", context.GetString("booking-id")),
 	)
 	failureDag.AddFunction("inform-failure", "inform-status",
 		flow.Query("status", "failure"),
@@ -95,11 +95,11 @@ func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 	failureDag = branchdags["failure"]
 	failureDag.AddFunction("hotel-cancel", "hotel-booking",
 		flow.Query("request", "cancel"),
-		flow.Query("booking-id", context.GetString("booking-id")),
+		//flow.Query("booking-id", context.GetString("booking-id")),
 	)
 	failureDag.AddFunction("flight-cancel", "flight-booking",
 		flow.Query("request", "cancel"),
-		flow.Query("booking-id", context.GetString("booking-id")),
+		//flow.Query("booking-id", context.GetString("booking-id")),
 	)
 	failureDag.AddFunction("inform-failure", "inform-status",
 		flow.Query("status", "failure"),
