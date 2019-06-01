@@ -18,7 +18,7 @@ func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 
 	// Step 1:
 	// generate a booking Id and add to request context
-	sagaDag.AddFunction("generate-booking-id", "generate-id")
+	sagaDag.AddFunction("generate-id", "generate-id")
 	sagaDag.AddModifier("generate-id", func(data []byte) ([]byte, error) {
 		context.Set("booking-id", string(data))
 		return data, nil
