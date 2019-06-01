@@ -28,7 +28,7 @@ functions:
     image: book-flight:latest
 
   # function to manage car-booking
-  car-booking:
+  rent-car:
     lang: python
     handler: ./car
     image: rent-car:latest

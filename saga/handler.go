@@ -35,8 +35,7 @@ func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 		[]string{"success", "failure"},
 		// function that determine the status
 		func(response []byte) []string {
-			result := string(response)
-			return []string{result}
+			return []string{"success"}
 		},
 	)
 	sagaDag.AddEdge("generate-id", "flight")
@@ -60,8 +59,7 @@ func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 		[]string{"success", "failure"},
 		// function that determine the status
 		func(response []byte) []string {
-			result := string(response)
-			return []string{result}
+			return []string{"success"}
 		},
 	)
 	sagaDag.AddEdge("hotel", "check-hotelbooking-status", flow.Execution)
@@ -85,8 +83,7 @@ func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 		[]string{"success", "failure"},
 		// function that determine the status
 		func(response []byte) []string {
-			result := string(response)
-			return []string{result}
+			return []string{"success"}
 		},
 	)
 	sagaDag.AddEdge("car", "check-carbooking-status", flow.Execution)
