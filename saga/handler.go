@@ -1,6 +1,7 @@
 package function
 
 import (
+	"fmt"
 	flow "github.com/s8sg/faas-flow"
 	consulStateStore "github.com/s8sg/faas-flow-consul-statestore"
 	"os"
@@ -28,7 +29,10 @@ func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 	// Book Flight
 	sagaDag.AddFunction("flight", "flight-booking",
 		flow.Query("request", "book"),
-		//flow.Query("booking-id", context.GetString("booking-id")),
+		flow.Forwarder(func(_ []byte) []byte {
+			data := []byte(fmt.Sprintf("id=%s", context.GetString("booking-id")))
+			return data
+		}),
 	)
 	branchdags := sagaDag.AddConditionalBranch("check-flightbooking-status",
 		// the possible condition
@@ -37,6 +41,7 @@ func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 		func(response []byte) []string {
 			return []string{"success"}
 		},
+		flow.ExecutionBranch,
 	)
 	sagaDag.AddEdge("generate-id", "flight")
 	sagaDag.AddEdge("flight", "check-flightbooking-status", flow.Execution)
@@ -45,6 +50,10 @@ func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 	failureDag := branchdags["failure"]
 	failureDag.AddFunction("inform-failure", "inform-status",
 		flow.Query("status", "failure"),
+		flow.Forwarder(func(_ []byte) []byte {
+			data := []byte(fmt.Sprintf("id=%s", context.GetString("booking-id")))
+			return data
+		}),
 	)
 
 	// Step 3:
@@ -52,7 +61,10 @@ func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 	sagaDag = branchdags["success"]
 	sagaDag.AddFunction("hotel", "hotel-booking",
 		flow.Query("request", "book"),
-		//flow.Query("booking-id", context.GetString("booking-id")),
+		flow.Forwarder(func(_ []byte) []byte {
+			data := []byte(fmt.Sprintf("id=%s", context.GetString("booking-id")))
+			return data
+		}),
 	)
 	branchdags = sagaDag.AddConditionalBranch("check-hotelbooking-status",
 		// the possible confdition
@@ -61,6 +73,7 @@ func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 		func(response []byte) []string {
 			return []string{"success"}
 		},
+		flow.ExecutionBranch,
 	)
 	sagaDag.AddEdge("hotel", "check-hotelbooking-status", flow.Execution)
 
@@ -83,8 +96,9 @@ func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 		[]string{"success", "failure"},
 		// function that determine the status
 		func(response []byte) []string {
-			return []string{"success"}
+			return []string{"failure"}
 		},
+		flow.ExecutionBranch,
 	)
 	sagaDag.AddEdge("car", "check-carbooking-status", flow.Execution)
 
