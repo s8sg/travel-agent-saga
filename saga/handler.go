@@ -9,6 +9,129 @@ import (
 	// "log"
 )
 
+func defineBookingDag(bookingDag *flow.DagFlow, context *flow.Context) {
+	// Step 2:
+	// Book Flight
+	bookingDag.AddFunction("flight",
+		"flight-booking",
+		flow.Query("request", "book"),
+		flow.Forwarder(func(_ []byte) []byte {
+			data := []byte(fmt.Sprintf("id=%s", context.GetString("booking-id")))
+			return data
+		}),
+	)
+	branchdags := bookingDag.AddConditionalBranch("check-status",
+		// the possible condition
+		[]string{"success", "failure"},
+		// function that determine the status
+		func(response []byte) []string {
+			return []string{"success"}
+		},
+		flow.ExecutionBranch,
+	)
+
+	bookingDag.AddEdge("flight", "check-status", flow.Execution)
+
+	// Handle Flight booking failure
+	failureDag := branchdags["failure"]
+	failureDag.AddModifier("update-context", func(data []byte) ([]byte, error) {
+		context.Set("status", "failure")
+		return data, nil
+	})
+
+	// Step 3:
+	// Book hotel
+	bookingDag = branchdags["success"]
+	bookingDag.AddFunction("hotel",
+		"hotel-booking",
+		flow.Query("request", "book"),
+		flow.Forwarder(func(_ []byte) []byte {
+			data := []byte(fmt.Sprintf("id=%s", context.GetString("booking-id")))
+			return data
+		}),
+	)
+	branchdags = bookingDag.AddConditionalBranch("check-status",
+		// the possible confdition
+		[]string{"success", "failure"},
+		// function that determine the status
+		func(response []byte) []string {
+			context.Set("status", "success")
+			return []string{"success"}
+		},
+		flow.ExecutionBranch,
+	)
+	bookingDag.AddEdge("hotel", "check-status", flow.Execution)
+
+	// Handle hotel booking failure
+	failureDag = branchdags["failure"]
+	failureDag.AddModifier("update-context", func(data []byte) ([]byte, error) {
+		context.Set("status", "failure")
+		return data, nil
+	})
+	failureDag.AddFunction("flight-cancel",
+		"flight-booking",
+		flow.Query("request", "cancel"),
+		flow.Forwarder(func(_ []byte) []byte {
+			data := []byte(fmt.Sprintf("id=%s", context.GetString("booking-id")))
+			return data
+		}),
+	)
+	failureDag.AddEdge("update-context", "flight-cancel", flow.Execution)
+
+	// Step 4:
+	// Book car
+	bookingDag = branchdags["success"]
+	bookingDag.AddFunction("car",
+		"rent-car",
+		flow.Query("request", "book"),
+		flow.Forwarder(func(_ []byte) []byte {
+			data := []byte(fmt.Sprintf("id=%s", context.GetString("booking-id")))
+			return data
+		}),
+	)
+
+	branchdags = bookingDag.AddConditionalBranch("check-status",
+		[]string{"success", "failure"},
+		// function that determine the status
+		func(response []byte) []string {
+			return []string{"failure"}
+		},
+		flow.ExecutionBranch,
+	)
+	bookingDag.AddEdge("car", "check-status", flow.Execution)
+
+	// handle car booking failure
+	failureDag = branchdags["failure"]
+	failureDag.AddModifier("update-context", func(data []byte) ([]byte, error) {
+		context.Set("status", "failure")
+		return data, nil
+	})
+	failureDag.AddFunction("hotel-cancel", "hotel-booking",
+		flow.Query("request", "cancel"),
+		flow.Forwarder(func(_ []byte) []byte {
+			data := []byte(fmt.Sprintf("id=%s", context.GetString("booking-id")))
+			return data
+		}),
+	)
+	failureDag.AddFunction("flight-cancel", "flight-booking",
+		flow.Query("request", "cancel"),
+		flow.Forwarder(func(_ []byte) []byte {
+			data := []byte(fmt.Sprintf("id=%s", context.GetString("booking-id")))
+			return data
+		}),
+	)
+	failureDag.AddEdge("update-context", "hotel-cancel", flow.Execution)
+	failureDag.AddEdge("hotel-cancel", "flight-cancel", flow.Execution)
+
+	// Step 5
+	// Update status to success
+	bookingDag = branchdags["success"]
+	bookingDag.AddModifier("update-context", func(data []byte) ([]byte, error) {
+		context.Set("status", "success")
+		return data, nil
+	})
+}
+
 // Define provide definiton of the saga
 func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 
@@ -24,104 +147,23 @@ func Define(workflow *flow.Workflow, context *flow.Context) (err error) {
 		context.Set("booking-id", string(data))
 		return data, nil
 	})
-
-	// Step 2:
-	// Book Flight
-	sagaDag.AddFunction("flight", "flight-booking",
-		flow.Query("request", "book"),
+	// Create a subdag to manage boooking
+	bookingDag := sagaDag.AddSubDag("booking-handler")
+	sagaDag.AddFunction("inform-status",
+		"inform-status",
 		flow.Forwarder(func(_ []byte) []byte {
-			data := []byte(fmt.Sprintf("id=%s", context.GetString("booking-id")))
-			return data
-		}),
-	)
-	branchdags := sagaDag.AddConditionalBranch("check-flightbooking-status",
-		// the possible condition
-		[]string{"success", "failure"},
-		// function that determine the status
-		func(response []byte) []string {
-			return []string{"success"}
-		},
-		flow.ExecutionBranch,
-	)
-	sagaDag.AddEdge("generate-id", "flight")
-	sagaDag.AddEdge("flight", "check-flightbooking-status", flow.Execution)
-
-	// Handle flight booking failure
-	failureDag := branchdags["failure"]
-	failureDag.AddFunction("inform-failure", "inform-status",
-		flow.Query("status", "failure"),
-		flow.Forwarder(func(_ []byte) []byte {
-			data := []byte(fmt.Sprintf("id=%s", context.GetString("booking-id")))
+			data := []byte(fmt.Sprintf("id=%s, status=%s",
+				context.GetString("booking-id"),
+				context.GetString("status")))
 			return data
 		}),
 	)
 
-	// Step 3:
-	// Book hotel
-	sagaDag = branchdags["success"]
-	sagaDag.AddFunction("hotel", "hotel-booking",
-		flow.Query("request", "book"),
-		flow.Forwarder(func(_ []byte) []byte {
-			data := []byte(fmt.Sprintf("id=%s", context.GetString("booking-id")))
-			return data
-		}),
-	)
-	branchdags = sagaDag.AddConditionalBranch("check-hotelbooking-status",
-		// the possible confdition
-		[]string{"success", "failure"},
-		// function that determine the status
-		func(response []byte) []string {
-			return []string{"success"}
-		},
-		flow.ExecutionBranch,
-	)
-	sagaDag.AddEdge("hotel", "check-hotelbooking-status", flow.Execution)
+	sagaDag.AddEdge("generate-id", "booking-handler", flow.Execution)
+	sagaDag.AddEdge("booking-handler", "inform-status", flow.Execution)
 
-	// Handle hotel booking failure
-	failureDag = branchdags["failure"]
-	failureDag.AddFunction("flight-cancel", "flight-booking",
-		flow.Query("request", "cancel"),
-		//flow.Query("booking-id", context.GetString("booking-id")),
-	)
-	failureDag.AddFunction("inform-failure", "inform-status",
-		flow.Query("status", "failure"),
-	)
-	failureDag.AddEdge("flight-cancel", "inform-failure", flow.Execution)
-
-	// Step 4:
-	// Book car
-	sagaDag = branchdags["success"]
-	sagaDag.AddFunction("car", "rent-car")
-	branchdags = sagaDag.AddConditionalBranch("check-carbooking-status",
-		[]string{"success", "failure"},
-		// function that determine the status
-		func(response []byte) []string {
-			return []string{"failure"}
-		},
-		flow.ExecutionBranch,
-	)
-	sagaDag.AddEdge("car", "check-carbooking-status", flow.Execution)
-
-	// handle car booking failure
-	failureDag = branchdags["failure"]
-	failureDag.AddFunction("hotel-cancel", "hotel-booking",
-		flow.Query("request", "cancel"),
-		//flow.Query("booking-id", context.GetString("booking-id")),
-	)
-	failureDag.AddFunction("flight-cancel", "flight-booking",
-		flow.Query("request", "cancel"),
-		//flow.Query("booking-id", context.GetString("booking-id")),
-	)
-	failureDag.AddFunction("inform-failure", "inform-status",
-		flow.Query("status", "failure"),
-	)
-	failureDag.AddEdge("hotel-cancel", "flight-cancel", flow.Execution)
-	failureDag.AddEdge("flight-cancel", "inform-failure", flow.Execution)
-
-	// Step 5:
-	// inform success
-	sagaDag = branchdags["success"]
-	sagaDag.AddFunction("inform-success", "inform-status")
+	// define the booking dag
+	defineBookingDag(bookingDag, context)
 
 	return
 }
